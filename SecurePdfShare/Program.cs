@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 
+<<<<<<< ours
+=======
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
@@ -19,7 +21,9 @@ if (app.Environment.IsDevelopment())
 var uploadDirectory = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uploads");
 Directory.CreateDirectory(uploadDirectory);
 
-app.MapGet("/", () => Results.Content(HtmlPage, "text/html"));
+const string HtmlContentType = "text/html; charset=utf-8";
+
+app.MapGet("/", () => Results.Content(HtmlPage, HtmlContentType));
 
 app.MapPost("/api/upload", async Task<IResult> (IFormFile? pdfFile) =>
 {
@@ -47,7 +51,7 @@ app.MapPost("/api/upload", async Task<IResult> (IFormFile? pdfFile) =>
     });
 });
 
-app.MapFallback(() => Results.Content(HtmlPage, "text/html"));
+app.MapFallback(() => Results.Content(HtmlPage, HtmlContentType));
 
 app.Run();
 
@@ -59,6 +63,7 @@ static string SanitizeFileName(string fileName)
     return string.IsNullOrWhiteSpace(cleaned) ? $"pdf_{Guid.NewGuid():N}.pdf" : cleaned;
 }
 
+>>>>>>> theirs
 const string HtmlPage = """
 <!doctype html>
 <html lang=\"tr\">
@@ -328,3 +333,63 @@ const string HtmlPage = """
 </body>
 </html>
 """;
+
+var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+var uploadDirectory = Path.Combine(app.Environment.ContentRootPath, "wwwroot", "uploads");
+Directory.CreateDirectory(uploadDirectory);
+
+app.MapGet("/", () => Results.Content(HtmlPage, "text/html"));
+
+app.MapPost("/api/upload", async Task<IResult> (IFormFile? pdfFile) =>
+{
+    if (pdfFile is null || pdfFile.Length == 0)
+    {
+        return Results.BadRequest(new { message = "Lütfen bir PDF dosyası seçin." });
+    }
+
+    if (!pdfFile.FileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+    {
+        return Results.BadRequest(new { message = "Sadece PDF dosyaları yüklenebilir." });
+    }
+
+    var safeFileName = SanitizeFileName(pdfFile.FileName);
+    var targetPath = Path.Combine(uploadDirectory, safeFileName);
+
+    await using var stream = File.Create(targetPath);
+    await pdfFile.CopyToAsync(stream);
+
+    return Results.Ok(new
+    {
+        message = "PDF başarıyla yüklendi.",
+        fileName = safeFileName,
+        downloadUrl = $"/uploads/{safeFileName}"
+    });
+});
+
+app.MapFallback(() => Results.Content(HtmlPage, "text/html"));
+
+app.Run();
+
+static string SanitizeFileName(string fileName)
+{
+    var invalidChars = Regex.Escape(new string(Path.GetInvalidFileNameChars()));
+    var invalidRegex = new Regex($"[{invalidChars}]+", RegexOptions.Compiled);
+    var cleaned = invalidRegex.Replace(fileName, "_");
+    return string.IsNullOrWhiteSpace(cleaned) ? $"pdf_{Guid.NewGuid():N}.pdf" : cleaned;
+}
+
